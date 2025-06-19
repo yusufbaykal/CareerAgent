@@ -450,6 +450,7 @@ pages = {
     "🔗 URL Analizi": "job_url_analysis",
     "🎯 Uygunluk": "job_compatibility",
     "✉️ Kapak Mektubu": "cover_letter_generation",
+    "🤖 Multi-Agent": "multi_agent",
 }
 
 selected_page_name = st.sidebar.radio(
@@ -534,6 +535,10 @@ elif selected_page_key == "job_compatibility":
 
 elif selected_page_key == "cover_letter_generation":
     st.session_state.cover_letter_tab.create_tab()
+
+elif selected_page_key == "multi_agent":
+    st.markdown("# 🤖 Multi-Agent Sistemi")
+    st.markdown("---")
 
 
 def main():
