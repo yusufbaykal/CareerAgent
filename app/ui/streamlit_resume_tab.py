@@ -76,53 +76,79 @@ class StreamlitResumeAnalysisTab:
                 
                 result = self._run_async_in_thread(agent.arun(analysis_query))
                 
-                expected_files = list(self.analysis_path.glob(f"resume_analysis_{base_name}_*.json"))
+                possible_patterns = [
+                    f"resume_analysis_{base_name}_*.json",  
+                    f"resume_analysis_resume_analysis_{base_name}_*.json",  
+                    f"*{base_name}*.json"  
+                ]
+                
+                expected_files = []
+                for pattern in possible_patterns:
+                    files = list(self.analysis_path.glob(pattern))
+                    expected_files.extend(files)
+                
+                expected_files = list(set(expected_files))
                 
                 if expected_files:
                     latest_file = max(expected_files, key=lambda x: x.stat().st_ctime)
                     
-                    with open(latest_file, 'r', encoding='utf-8') as f:
-                        analysis_content = f.read()
-                    
-                    st.session_state.resume_analysis_result = analysis_content
-                    
-                    result_msg = f"✅ **CV analizi başarıyla tamamlandı!**\n\n"
-                    result_msg += f"📂 **Kaydedilen Dosya:** `{latest_file.name}`\n"
-                    result_msg += f"📊 **Analiz Tarihi:** {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
-                    result_msg += f"💾 Detaylı CV analizi JSON formatında kaydedildi.\n"
-                    result_msg += f"📋 Analiz yetenekler, deneyim, eğitim ve önerileri içermektedir."
-                    
-                    st.success(result_msg)
-                    
-                    st.markdown("### 📊 Analiz Sonucu")
                     try:
-                        analysis_json = json.loads(analysis_content)
-                        st.json(analysis_json)
-                    except json.JSONDecodeError:
-                        st.text_area("Analiz Sonucu (Metin)", analysis_content, height=300)
+                        with open(latest_file, 'r', encoding='utf-8') as f:
+                            analysis_content = f.read()
+                        
+                        st.session_state.resume_analysis_result = analysis_content
+                        
+                        result_msg = f"✅ **CV analizi başarıyla tamamlandı!**\n\n"
+                        result_msg += f"📂 **Kaydedilen Dosya:** `{latest_file.name}`\n"
+                        result_msg += f"📊 **Analiz Tarihi:** {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
+                        result_msg += f"💾 Detaylı CV analizi JSON formatında kaydedildi.\n"
+                        result_msg += f"📋 Analiz yetenekler, deneyim, eğitim ve önerileri içermektedir."
+                        
+                        st.success(result_msg)
+                        
+                        st.markdown("### 📊 Analiz Sonucu")
+                        try:
+                            analysis_json = json.loads(analysis_content)
+                            st.json(analysis_json)
+                        except json.JSONDecodeError:
+                            st.text_area("Analiz Sonucu (Metin)", analysis_content, height=300)
+                    
+                    except Exception as file_error:
+                        st.error(f"❌ Dosya okuma hatası: {str(file_error)}")
+                        st.info(f"📄 Dosya bulundu ama okunamadı: {latest_file.name}")
                 
                 else:
                     result_str = str(result) if result else "Boş yanıt"
                     
-                    st.warning("⚠️ Analiz dosyası oluşturulamadı.")
-                    st.text_area("Agent Yanıtı:", result_str, height=200)
-                    
-                    if result_str and result_str != "Boş yanıt":
-                        fallback_file = self.analysis_path / json_filename
+                    if "resume_analysis_" in result_str and "kaydedildi" in result_str:
+                        st.success("✅ **CV analizi başarıyla tamamlandı!**")
+                        st.info("📋 Analiz sonucu agent tarafından kaydedildi.")
+                        st.text_area("Agent Yanıtı:", result_str, height=150)
                         
-                        fallback_data = {
-                            "status": "partial",
-                            "message": "Agent yanıtı olarak kaydedildi",
-                            "content": result_str,
-                            "timestamp": datetime.now().isoformat(),
-                            "original_file": filename
-                        }
+                        all_analysis_files = list(self.analysis_path.glob("*.json"))
+                        if all_analysis_files:
+                            latest_any_file = max(all_analysis_files, key=lambda x: x.stat().st_ctime)
+                            st.info(f"📂 Son oluşturulan dosya: `{latest_any_file.name}`")
+                    else:
+                        st.warning("⚠️ Analiz tamamlandı ancak dosya konumu belirlenemedi.")
+                        st.text_area("Agent Yanıtı:", result_str, height=200)
                         
-                        with open(fallback_file, 'w', encoding='utf-8') as f:
-                            json.dump(fallback_data, f, ensure_ascii=False, indent=2)
-                        
-                        st.info(f"📝 Agent yanıtı {fallback_file.name} olarak kaydedildi.")
-                        st.session_state.resume_analysis_result = json.dumps(fallback_data, ensure_ascii=False, indent=2)
+                        if result_str and result_str != "Boş yanıt":
+                            fallback_file = self.analysis_path / json_filename
+                            
+                            fallback_data = {
+                                "status": "partial",
+                                "message": "Agent yanıtı olarak kaydedildi",
+                                "content": result_str,
+                                "timestamp": datetime.now().isoformat(),
+                                "original_file": filename
+                            }
+                            
+                            with open(fallback_file, 'w', encoding='utf-8') as f:
+                                json.dump(fallback_data, f, ensure_ascii=False, indent=2)
+                            
+                            st.info(f"📝 Agent yanıtı {fallback_file.name} olarak kaydedildi.")
+                            st.session_state.resume_analysis_result = json.dumps(fallback_data, ensure_ascii=False, indent=2)
                     
             except Exception as e:
                 st.error(f"❌ Hata oluştu: {str(e)}")

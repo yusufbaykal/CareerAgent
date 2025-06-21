@@ -90,7 +90,7 @@ class CoverLetterToolkit(Toolkit):
     def generate_cover_letter(self, resume_data: str, job_data: str) -> str:
         try:
             resume_info = self._parse_json_safely(resume_data, "özgeçmiş")
-            if isinstance(resume_info, str):  # Hata mesajı
+            if isinstance(resume_info, str):
                 return resume_info
                 
             job_info = self._parse_json_safely(job_data, "iş ilanı")

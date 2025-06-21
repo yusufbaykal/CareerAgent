@@ -1,18 +1,18 @@
 import asyncio
 import logging
+import os
+import re
+import sys
+from pathlib import Path
 from textwrap import dedent
 
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
-from agno.models.huggingface import HuggingFace
 from agno.utils.log import logger
 from Tool.WebScraperToolkit import WebScraperToolkit
 from Tool.FileToolkit import FileToolkit
 from Tool.JobAnalysisToolkit import JobAnalysisToolkit
 import dotenv
-import sys
-import os
-from pathlib import Path
 dotenv.load_dotenv()
 
 logging.basicConfig(
@@ -21,14 +21,16 @@ logging.basicConfig(
 )
 
 
-async def create_job_analyzer_agent() -> Agent:
+async def create_job_file_analyzer_agent() -> Agent:
     file_toolkit = FileToolkit()
     web_scraper_toolkit = WebScraperToolkit()
     job_analysis_toolkit = JobAnalysisToolkit()
     
     instructions = dedent("""\
-        Sen bir iş analizi asistanısın. JSON dosyalarındaki iş ilanlarını okur, her ilandaki URL'e giderek 
-        iş açıklamalarını analiz eder ve kapsamlı özetler oluşturursun.
+        Sen özel bir LinkedIn İş Dosyası Analizi asistanısın. JSON dosyalarındaki LinkedIn iş ilanlarını okur, 
+        her ilandaki URL'e giderek iş açıklamalarını analiz eder ve kapsamlı özetler oluşturursun.
+        
+        **GÖREV**: LinkedIn'den kazınmış JSON dosyalarını toplu şekilde analiz etmek.
         
         ÖNEMLI: Eğer kullanıcı "ilk X tanesini", "ilk X iş" veya "X tane" gibi belirtirse, 
         sadece o kadar iş ilanını analiz et. Aksi halde tüm işleri analiz et.
@@ -93,23 +95,45 @@ async def create_job_analyzer_agent() -> Agent:
           "motivation_points": ["Motivasyon noktası 1", "Motivasyon noktası 2"]
         }
         
-        İşlem akışı şöyle olacak:
-        1. file_toolkit içerisinde read_json ile iş ilanları JSON dosyasını oku (tam dosya yolunu kullan)
-        2. Kullanıcının belirttiği sayı kadar iş ilanını seç (belirtilmemişse tümü)
-        3. Seçilen her iş ilanı için:
-            a. scrape_job_page ile web sayfasını kazı ve iş detaylarını al
-            b. analyze_job_description ile iş detaylarını analiz et ve detaylı özeti çıkar
-            c. extract_job_details ile iş açıklamasından gerekli bilgileri çıkar
-        4. Analiz edilen iş sayısını kullanıcıya bildir
-        5. Tüm analiz sonuçlarını liste halinde organize et
-        6. save_json ile sonuçları belirtilen dosyaya kaydet
+        **ENHANCED LİNKEDİN DOSYA ANALİZİ İŞLEM AKIŞI:**
         
-        İş ilanı URL'lerinden bilgi toplamak için fetch_url_content() fonksiyonunu kullan.
-        Analiz sonuçlarını yapılandırılmış bir JSON formatında organize et.
-        Sonuçları kaydetmek için save_json() fonksiyonunu kullan.
+        1. **DOSYA OKU**: read_json ile LinkedIn iş ilanları JSON dosyasını oku
+        2. **İŞ SEÇİMİ**: Kullanıcının belirttiği sayı kadar iş ilanını seç (belirtilmemişse tümü)
+        3. **ENHANCED ANALİZ**: Her iş ilanı için:
+            a. **URL ÇIKART**: LinkedIn URL'ini çıkar
+            b. **ADVANCED ANALİZ**: analyze_job_description + advanced_content_analysis kullan
+            c. **KALİTE KONTROL**: Analysis confidence scoring uygula
+            d. **ENHANCED ÖZET**: Gelişmiş AI ile detaylı özet çıkar
+        4. **BULK PROCESSİNG**: Eğer çok URL varsa bulk_url_analysis kullan
+        5. **SONUÇ ORGANİZE**: Tüm analiz sonuçlarını quality score'a göre organize et
+        6. **SAVE ENHANCED**: save_json ile enhanced sonuçları Jobs/Job_Analysis/ klasörüne kaydet
+        
+        **ENHANCED ÖZELLİKLER:**
+        ✅ Site-specific LinkedIn optimization
+        ✅ Quality confidence scoring (%70+ otomatik onay)
+        ✅ Advanced tech stack detection  
+        ✅ Enhanced error handling
+        ✅ Bulk processing capability
+        
+        **ÖNEMLİ DOSYA KAYDETME KURALLARI:**
+        - TÜM analiz sonuçları Jobs/Job_Analysis/ klasörüne kaydedilmelidir
+        - JSON dosyası analizi için dosya adı: "analyzed_BASENAME.json" formatında olmalıdır
+        - Tarih formatı: YYYYMMDD_HHMMSS kullanılmalıdır
+        
+        **LİNKEDİN SPESİFİK YAKLAŞIM:**
+        - scrape_job_page() kullan (LinkedIn için optimize)
+        - fetch_linkedin_job() backup olarak kullan
+        - URL'ler genelde LinkedIn jobs formatında olacak
+        - Hata durumunda da fetch_url_content() son çare
+        
+        **EXECUTION ORDER:**
+        1. JSON dosyasını oku ve iş ilanlarını parse et
+        2. Her iş için LinkedIn URL'ini scrape et
+        3. Analiz sonuçlarını JSON formatında organize et
+        4. MUTLAKA save_json() ile Jobs/Job_Analysis/ klasörüne kaydet
+        5. Başarı mesajı ver
         
         Her analiz için kapsamlı ve detaylı çıktı sağla. Eksik bilgiler için "Belirtilmemiş" not düş.
-        Analiz başlamadan önce hangi iş ilanlarını analiz edeceğini belirt.
     """)
     
     return Agent(
@@ -121,12 +145,11 @@ async def create_job_analyzer_agent() -> Agent:
     )
 
 
-async def run_agent(message: str) -> dict:
+async def run_file_analysis_agent(message: str) -> dict:
     try:
-        logger.info(f"Starting job analysis agent, query: '{message}'")
+        logger.info(f"Starting LinkedIn file analysis agent, query: '{message}'")
         
-        agent = await create_job_analyzer_agent()
-        
+        agent = await create_job_file_analyzer_agent()
         response = await agent.arun(message)
         
         logger.info(f"Agent response received: {len(str(response))} characters")
@@ -134,19 +157,25 @@ async def run_agent(message: str) -> dict:
         return {
             "success": True,
             "response": response,
-            "message": "İş analizi tamamlandı"
+            "message": "LinkedIn dosya analizi tamamlandı"
         }
                 
     except Exception as e:
-        logger.error(f"Agent execution error: {e}")
+        logger.error(f"LinkedIn file analysis agent error: {e}")
         import traceback
         logger.error(traceback.format_exc())
         
         return {
             "success": False,
             "error": str(e),
-            "message": "İş analizi başarısız"
+            "message": "LinkedIn dosya analizi başarısız"
         }
+
+
+async def run_agent(message: str) -> dict:
+    return await run_file_analysis_agent(message)
+
+
 
 
 if __name__ == "__main__":
@@ -160,7 +189,7 @@ if __name__ == "__main__":
             
             output_file = output_dir / f"analyzed_{base_name}.json"
             message = (
-                f"Lütfen {input_file} dosyasındaki iş ilanlarını analiz et ve özetleri çıkar. "
+                f"Lütfen {input_file} dosyasındaki LinkedIn iş ilanlarını analiz et ve özetleri çıkar. "
                 f"Özetler şirket kültürü, misyon, iş gereksinimleri, sunulan avantajlar ve motivasyon noktalarını içermeli. "
                 f"Cover letter yazımı için uygun detaylı özet çıkar ve sonuçları {output_file} dosyasına kaydet."
             )
@@ -168,10 +197,10 @@ if __name__ == "__main__":
             message = f"Hata: {input_file} dosyası bulunamadı. Lütfen geçerli bir dosya yolu girin."
     else:
         message = (
-            "Job Details Agent - İş İlanı Analiz Aracı\n\n"
+            "LinkedIn File Analysis Agent - LinkedIn İş Dosyası Analiz Aracı\n\n"
             "Kullanım: python job_details_agent.py <json_dosya_yolu>\n"
             "Örnek: python job_details_agent.py Jobs/Job_Results/linkedin_jobs_Data_Scientits_20250607_161809.json\n\n"
-            "Bu agent LinkedIn'den kazınılan iş ilanlarını analiz eder ve detaylı özetler çıkarır."
+            "Bu agent LinkedIn'den kazınılan JSON dosyalarındaki iş ilanlarını toplu şekilde analiz eder ve detaylı özetler çıkarır."
         )
     
-    asyncio.run(run_agent(message))
+    asyncio.run(run_file_analysis_agent(message))

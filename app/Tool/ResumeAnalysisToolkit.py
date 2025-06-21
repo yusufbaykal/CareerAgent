@@ -123,7 +123,7 @@ class ResumeAnalysisToolkit(Toolkit):
                 for page_num, page in enumerate(reader.pages):
                     try:
                         page_text = page.extract_text()
-                        if page_text.strip():  # Boş sayfa kontrolü
+                        if page_text.strip():
                             text += page_text + "\n"
                     except Exception as e:
                         logger.warning(f"Sayfa {page_num + 1} okunamadı: {str(e)}")
@@ -221,12 +221,19 @@ class ResumeAnalysisToolkit(Toolkit):
             return error_msg
     
     def _generate_filename(self, resume_name: str, analysis_data: str) -> str:
-        if resume_name.endswith('.json') and '_' in resume_name:
+        if resume_name.endswith('.json') and resume_name.startswith('resume_analysis_'):
             return resume_name
+        
+        if resume_name.endswith('.json'):
+            base_name = resume_name[:-5]
         else:
             base_name = Path(resume_name).stem
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            return f"resume_analysis_{base_name}_{timestamp}.json"
+            
+        if base_name.startswith('resume_analysis_'):
+            base_name = base_name[16:]
+            
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return f"resume_analysis_{base_name}_{timestamp}.json"
     
     def _prepare_analysis_data(self, analysis_data: str, resume_name: str) -> dict:
         if isinstance(analysis_data, str):

@@ -444,10 +444,9 @@ st.sidebar.markdown('<div class="nav-header">🤖 AGENTLAR</div>', unsafe_allow_
 
 pages = {
     "🏠 Ana Sayfa": "home",
-    "💼 LinkedIn": "linkedin_search", 
+    "💼 LinkedIn": "linkedin_search",
+    "📊 İş Analizi": "job_file_analysis", 
     "📄 CV Analizi": "resume_analysis",
-    "📊 İş Analizi": "job_file_analysis",
-    "🔗 URL Analizi": "job_url_analysis",
     "🎯 Uygunluk": "job_compatibility",
     "✉️ Kapak Mektubu": "cover_letter_generation",
     "🤖 Multi-Agent": "multi_agent",
@@ -526,9 +525,6 @@ elif selected_page_key == "resume_analysis":
 
 elif selected_page_key == "job_file_analysis":
     st.session_state.job_file_analysis_tab.create_tab()
-
-elif selected_page_key == "job_url_analysis":
-    st.session_state.job_url_analysis_tab.create_tab()
 
 elif selected_page_key == "job_compatibility":
     st.session_state.job_compatibility_tab.create_tab()

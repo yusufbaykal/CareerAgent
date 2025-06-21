@@ -15,22 +15,38 @@ class FileToolkit(Toolkit):
         
     def save_json(self, data: Any, file_path: str) -> str:
         try:
-            full_path = os.path.abspath(file_path)
+            normalized_path = file_path.replace('\\', '/')
+            full_path = os.path.abspath(normalized_path)
             
             directory = os.path.dirname(full_path)
             if not os.path.exists(directory):
-                os.makedirs(directory)
+                os.makedirs(directory, exist_ok=True)
                 logger.info(f"Dizin oluşturuldu: {directory}")
-                
+            
             with open(full_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            if os.path.exists(full_path):
+                file_size = os.path.getsize(full_path)
+                logger.info(f"✅ JSON verisi başarıyla kaydedildi: {full_path} ({file_size} bytes)")
+                return f"✅ BAŞARILI: JSON verisi '{full_path}' dosyasına kaydedildi. ({file_size} bytes)"
+            else:
+                raise Exception("Dosya yazıldı ama teyit edilemedi")
                 
-            logger.info(f"JSON verisi başarıyla kaydedildi: {full_path}")
-            return f"Başarılı: JSON verisi '{full_path}' dosyasına kaydedildi."
         except Exception as e:
             error_msg = f"Dosya kaydetme hatası: {str(e)}"
             logger.error(error_msg)
-            return f"Error: {error_msg}"
+            
+            try:
+                backup_path = full_path.replace('.json', '_backup.json')
+                with open(backup_path, 'w', encoding='utf-8-sig') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                logger.info(f"Backup dosya oluşturuldu: {backup_path}")
+                return f"⚠️ Backup olarak kaydedildi: {backup_path}"
+            except:
+                pass
+                
+            return f"❌ HATA: {error_msg}"
     
     def save_text(self, text: str, file_path: str) -> str:
         try:

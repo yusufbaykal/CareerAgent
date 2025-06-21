@@ -332,17 +332,32 @@ class StreamlitLinkedInTab:
                                "Backend Developer", "DevOps Engineer", "Product Manager",
                                "UI/UX Designer", "Business Analyst", "QA Engineer"]
             
+            previous_manual_keyword = st.session_state.get("linkedin_keyword_input", "").strip()
+            
+            if previous_manual_keyword:
+                if previous_manual_keyword in popular_positions:
+                    dropdown_index = popular_positions.index(previous_manual_keyword)
+                else:
+                    dropdown_index = 0
+            else:
+                dropdown_index = 0
+            
             selected_position = st.selectbox(
                 label="🎯 Anahtar Kelime / Pozisyon",
                 options=popular_positions,
-                index=0,
+                index=dropdown_index,
                 key="linkedin_position_selectbox",
-                help="Popüler pozisyonlardan seçin veya aşağıda manuel girin"
+                help="Popüler pozisyonlardan seçin"
             )
-            default_keyword = selected_position if selected_position != "Seçiniz..." else ""
+            
+            if selected_position != "Seçiniz...":
+                default_keyword = selected_position if not previous_manual_keyword else previous_manual_keyword
+            else:
+                default_keyword = previous_manual_keyword
+            
             keyword_input = st.text_input(
                 label="Veya manuel girin:",
-                placeholder="Örn: Python Developer, Data Scientist",
+                placeholder="Örn: Machine Learning Engineer, Python Developer",
                 key="linkedin_keyword_input",
                 value=default_keyword,
                 help="Aranacak pozisyon veya beceri"
@@ -350,18 +365,33 @@ class StreamlitLinkedInTab:
 
         with col1_2:
             popular_cities = ["Seçiniz...", "İstanbul", "Ankara", "İzmir", "Bursa", "Antalya", "Adana", "Türkiye"]
+            
+            previous_manual_location = st.session_state.get("linkedin_location_input", "").strip()
+            
+            if previous_manual_location:
+                if previous_manual_location in popular_cities:
+                    city_dropdown_index = popular_cities.index(previous_manual_location)
+                else:
+                    city_dropdown_index = 0  
+            else:
+                city_dropdown_index = 7 
+            
             selected_city = st.selectbox(
                 label="📍 Konum",
                 options=popular_cities,
-                index=7,
+                index=city_dropdown_index,
                 key="linkedin_city_selectbox", 
-                help="Popüler şehirlerden seçin veya aşağıda manuel girin"
+                help="Popüler şehirlerden seçin"
             )
             
-            default_location = selected_city if selected_city != "Seçiniz..." else "Türkiye"
+            if selected_city != "Seçiniz...":
+                default_location = selected_city if not previous_manual_location else previous_manual_location
+            else:
+                default_location = previous_manual_location
+            
             location_input = st.text_input(
                 label="Veya manuel girin:",
-                placeholder="Örn: Istanbul, Ankara",
+                placeholder="Örn: İstanbul, Ankara, Remote",
                 key="linkedin_location_input",
                 value=default_location,
                 help="İş ilanlarının aranacağı konum"
@@ -390,10 +420,10 @@ class StreamlitLinkedInTab:
         with col2_3:
             limit_input = st.number_input(
                 label="🔢 Maksimum Sonuç",
-                min_value=10,
-                max_value=200,
-                step=10,
-                value=50,
+                min_value=5,
+                max_value=50,
+                step=1,
+                value=10,
                 key="linkedin_limit_input",
                 help="Çekilecek maksimum iş ilanı sayısı"
             )
@@ -405,6 +435,10 @@ class StreamlitLinkedInTab:
             if st.button("🚀 İş Ara", type="primary", use_container_width=True):
                 final_keyword = keyword_input.strip() if keyword_input.strip() else (selected_position if selected_position != "Seçiniz..." else "")
                 final_location = location_input.strip() if location_input.strip() else (selected_city if selected_city != "Seçiniz..." else "Türkiye")
-                self.search_linkedin_jobs(final_keyword, final_location, limit_input, date_filter)
+                
+                if not final_keyword:
+                    st.error("❌ Lütfen bir anahtar kelime girin.")
+                else:
+                    self.search_linkedin_jobs(final_keyword, final_location, limit_input, date_filter)
 
  

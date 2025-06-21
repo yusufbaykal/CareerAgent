@@ -10,7 +10,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from ui.agent_manager import AgentManager
 from ui.utils import UIUtils
-from job_details_agent import run_agent as run_job_analysis_agent
+from job_details_agent import run_file_analysis_agent
 
 class StreamlitJobFileAnalysisTab:
     def __init__(self, agent_manager: AgentManager):
@@ -75,19 +75,32 @@ class StreamlitJobFileAnalysisTab:
                 else:
                     analysis_query = f"'{full_file_path}' dosyasındaki tüm iş ilanlarını detaylı şekilde analiz et ve sonuçları Jobs/Job_Analysis/ klasörüne kaydet."
                 
-                result = self._run_async_in_thread(run_job_analysis_agent(analysis_query))
+                result = self._run_async_in_thread(run_file_analysis_agent(analysis_query))
                 
                 if result and result.get("success"):
-                    analysis_files = list(self.job_analysis_path.glob("*.json"))
+                    search_paths = [
+                        (self.job_analysis_path, "*.json"),
+                        (self.job_analysis_path, "*analyzed*.json"),
+                        (self.job_results_path, "*analyzed*.json"),
+                        (self.job_results_path, "*.json")
+                    ]
                     
-                    if analysis_files:
-                        latest_file = max(analysis_files, key=lambda x: x.stat().st_ctime)
+                    all_analysis_files = []
+                    for search_path, pattern in search_paths:
+                        if search_path.exists():
+                            files = list(search_path.glob(pattern))
+                            all_analysis_files.extend(files)
+                    
+                    all_analysis_files = list(set(all_analysis_files))
+                    
+                    if all_analysis_files:
+                        latest_file = max(all_analysis_files, key=lambda x: x.stat().st_ctime)
                         job_count_msg = f" ({max_jobs} iş)" if max_jobs else ""
                         result_msg = f"✅ **İş ilanı analizi tamamlandı{job_count_msg}!**\n\n"
                         result_msg += f"📂 **Kaynak:** `{selected_file}`\n"
                         result_msg += f"📊 **Analiz Dosyası:** `{latest_file.name}`\n"
                         result_msg += f"📅 **Tarih:** {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
-                        result_msg += f"💾 Detaylı analiz `Jobs/Job_Analysis/` klasörüne kaydedildi."
+                        result_msg += f"💾 Detaylı analiz `{latest_file.parent.name}/` klasörüne kaydedildi."
                         
                         st.success(result_msg)
                         
@@ -106,7 +119,25 @@ class StreamlitJobFileAnalysisTab:
                             st.warning(f"⚠️ Analiz dosyası okunamadı: {str(e)}")
                     
                     else:
-                        st.warning("⚠️ Analiz tamamlandı ancak sonuç dosyası bulunamadı.")
+                        result_str = str(result.get("response", "")) if result else ""
+                        
+                        if "kaydedildi" in result_str or "başarıyla" in result_str.lower():
+                            job_count_msg = f" ({max_jobs} iş)" if max_jobs else ""
+                            st.success(f"✅ **İş ilanı analizi tamamlandı{job_count_msg}!**")
+                            st.info("📋 Analiz sonucu agent tarafından kaydedildi.")
+                            
+                            all_json_files = []
+                            for folder in [self.job_analysis_path, self.job_results_path]:
+                                if folder.exists():
+                                    files = list(folder.glob("*.json"))
+                                    all_json_files.extend(files)
+                            
+                            if all_json_files:
+                                latest_any_file = max(all_json_files, key=lambda x: x.stat().st_ctime)
+                                st.info(f"📂 Son oluşturulan dosya: `{latest_any_file.name}`")
+                        else:
+                            st.warning("⚠️ Analiz tamamlandı ancak sonuç dosyası bulunamadı.")
+                        
                         if result.get("response"):
                             with st.expander("🤖 Agent Yanıtı"):
                                 st.text_area("Detaylar:", str(result["response"]), height=200)
@@ -122,8 +153,8 @@ class StreamlitJobFileAnalysisTab:
                 st.text_area("Hata detayları:", str(e), height=150)
 
     def create_tab(self):
-        st.header("📁 İş İlanı Dosya Analizi")
-        st.markdown("Kaydedilen iş ilanı dosyalarınızı AI ile detaylı analiz edin.")
+        st.header("📁 LinkedIn Dosya Analizi")
+        st.markdown("LinkedIn'den kaydedilmiş iş ilanı dosyalarınızı AI ile toplu analiz edin.")
         
         col1, col2 = st.columns([2, 1])
 

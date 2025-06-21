@@ -5,7 +5,7 @@ from typing import Optional
 
 try:
     from ..job_agent_extenction import create_agent as create_linkedin_agent
-    from ..job_details_agent import create_job_analyzer_agent
+    from ..job_details_agent import create_job_file_analyzer_agent
     from ..resume_agent import create_resume_analysis_agent
     from ..cover_letter_agent_all import create_cover_letter_agent
     from ..agent_jobs_random_link import create_job_analysis_agent as create_random_job_agent
@@ -15,7 +15,7 @@ except ImportError:
     import os
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
     from job_agent_extenction import create_agent as create_linkedin_agent
-    from job_details_agent import create_job_analyzer_agent
+    from job_details_agent import create_job_file_analyzer_agent
     from resume_agent import create_resume_analysis_agent
     from cover_letter_agent_all import create_cover_letter_agent
     from agent_jobs_random_link import create_job_analysis_agent as create_random_job_agent
@@ -46,7 +46,10 @@ class AgentManager:
         return await create_linkedin_agent()
     
     async def get_job_analyzer_agent(self):
-        return await create_job_analyzer_agent()
+        return await create_job_file_analyzer_agent()
+    
+    async def get_job_file_analyzer_agent(self):
+        return await create_job_file_analyzer_agent()
     
     async def get_resume_agent(self):
         return await create_resume_analysis_agent()
