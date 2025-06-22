@@ -1,6 +1,10 @@
 import streamlit as st
 import os
 import sys
+import asyncio
+import json
+from pathlib import Path
+from datetime import datetime
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -11,6 +15,251 @@ from ui.streamlit_resume_tab import StreamlitResumeAnalysisTab
 from ui.streamlit_job_file_analysis_tab import StreamlitJobFileAnalysisTab
 from ui.streamlit_job_url_analysis_tab import StreamlitJobUrlAnalysisTab
 from ui.streamlit_job_compatibility_tab import StreamlitJobCompatibilityTab
+
+from Tool.JobCompatibilityToolkit import JobCompatibilityToolkit
+from Tool.CoverLetterToolkit import CoverLetterToolkit
+
+from app.multi_agent.CareerAgentTeamCoordinator import CareerAgentTeamCoordinator
+
+import dotenv
+
+class MultiAgentResultsDisplay:
+    
+    def __init__(self, workflow_id: str):
+        self.workflow_id = workflow_id
+        self.base_path = Path("Jobs")
+        
+    def load_file_content(self, file_path: Path) -> dict:
+        try:
+            if file_path.exists():
+                if file_path.suffix == '.json':
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        return {
+                            "status": "success",
+                            "content": json.load(f),
+                            "size": file_path.stat().st_size,
+                            "modified": datetime.fromtimestamp(file_path.stat().st_mtime)
+                        }
+                else:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        return {
+                            "status": "success", 
+                            "content": f.read(),
+                            "size": file_path.stat().st_size,
+                            "modified": datetime.fromtimestamp(file_path.stat().st_mtime)
+                        }
+            else:
+                return {"status": "not_found", "content": None}
+        except Exception as e:
+            return {"status": "error", "content": str(e)}
+    
+    def get_quality_score(self, content: dict, file_type: str) -> tuple:
+        if not content or content.get("status") != "success":
+            return 0, "❌ Dosya okunamadı"
+        
+        data = content["content"]
+        
+        if file_type == "job_analysis":
+            if isinstance(data, dict) and data.get('note') and 'template' in data['note'].lower():
+                return 25, "⚠️ Template veriler"
+            score = 0
+            checks = [
+                (data.get('job_title') and 'belirtilmemiş' not in data['job_title'].lower(), 15),
+                (data.get('company_name') and 'belirtilmemiş' not in data['company_name'].lower(), 15),
+                (data.get('key_technologies') and len(data['key_technologies']) > 1, 20),
+                (data.get('responsibilities') and len(data['responsibilities']) > 1, 20),
+                (data.get('qualifications') and len(data['qualifications']) > 1, 15),
+                (data.get('location') and 'belirtilmemiş' not in data['location'].lower(), 15)
+            ]
+            score = sum(points for check, points in checks if check)
+            return score, "✅ Yüksek kalite" if score >= 80 else "⚡ Orta kalite" if score >= 60 else "⚠️ Düşük kalite"
+            
+        elif file_type == "resume_analysis":
+            if isinstance(data, dict) and data.get('note') and 'template' in data['note'].lower():
+                return 30, "⚠️ Template veriler"
+            score = 0
+            checks = [
+                (data.get('personal_info', {}).get('name') and 'cv\'den okunamadı' not in data['personal_info']['name'].lower(), 20),
+                (data.get('experience') and len(data['experience']) > 0, 25),
+                (data.get('skills', {}).get('technical') and len(data['skills']['technical']) > 2, 20),
+                (data.get('skills', {}).get('soft') and len(data['skills']['soft']) > 2, 15),
+                (data.get('education') and len(data['education']) > 0, 20)
+            ]
+            score = sum(points for check, points in checks if check)
+            return score, "✅ Yüksek kalite" if score >= 80 else "⚡ Orta kalite" if score >= 60 else "⚠️ Düşük kalite"
+            
+        elif file_type == "compatibility":
+            score = 0
+            checks = [
+                (data.get('overall_score') and 'N/A' not in data['overall_score'], 20),
+                (data.get('strengths') and len(data['strengths']) > 1, 20),
+                (data.get('weaknesses') and len(data['weaknesses']) > 0, 20),
+                (data.get('recommendations') and len(data['recommendations']) > 1, 20),
+                (data.get('detailed_analysis') and len(data['detailed_analysis']) > 50, 20)
+            ]
+            score = sum(points for check, points in checks if check)
+            return score, "✅ Yüksek kalite" if score >= 80 else "⚡ Orta kalite" if score >= 60 else "⚠️ Düşük kalite"
+            
+        elif file_type == "cover_letter":
+            if isinstance(data, str):
+                length = len(data)
+                if length < 200:
+                    return 40, "⚠️ Çok kısa"
+                elif length > 1000:
+                    return 85, "✅ Detaylı mektup"
+                else:
+                    return 70, "⚡ Orta uzunluk"
+            return 50, "⚡ Standart format"
+        
+        return 50, "⚡ Orta kalite"
+    
+    def display_results(self):
+        st.markdown("## 🎉 İş Akışı Tamamlandı!")
+        st.markdown(f"**Workflow ID:** `{self.workflow_id}`")
+        st.markdown(f"**Tamamlanma Zamanı:** {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+        
+        files_info = {
+            "job_analysis": {
+                "path": self.base_path / "Job_Analysis" / f"{self.workflow_id}_single_job_analysis.json",
+                "icon": "💼",
+                "title": "İş Analizi",
+                "description": "İş ilanının detaylı analizi ve gereksinimleri"
+            },
+            "resume_analysis": {
+                "path": self.base_path / "Resume_Analysis" / f"{self.workflow_id}_resume_analysis.json", 
+                "icon": "📄",
+                "title": "CV Analizi",
+                "description": "Özgeçmişinizin yapılandırılmış analizi"
+            },
+            "compatibility": {
+                "path": self.base_path / "Job_Compatibility" / f"compatibility_{self.workflow_id}.json",
+                "icon": "🎯", 
+                "title": "Uygunluk Raporu",
+                "description": "İş-CV uyumunun detaylı değerlendirmesi"
+            },
+            "cover_letter": {
+                "path": self.base_path / "Cover_Letters" / f"{self.workflow_id}_cover_letter.txt",
+                "icon": "✉️",
+                "title": "Kapak Mektubu", 
+                "description": "Kişiselleştirilmiş başvuru mektubu"
+            }
+        }
+        
+        st.markdown("### 📊 Kalite Özeti")
+        quality_cols = st.columns(4)
+        
+        overall_scores = []
+        for i, (file_type, file_info) in enumerate(files_info.items()):
+            content = self.load_file_content(file_info["path"])
+            score, status = self.get_quality_score(content, file_type)
+            overall_scores.append(score)
+            
+            with quality_cols[i]:
+                st.metric(
+                    label=f"{file_info['icon']} {file_info['title']}", 
+                    value=f"{score}%",
+                    delta=status
+                )
+        
+        avg_score = sum(overall_scores) / len(overall_scores) if overall_scores else 0
+        if avg_score >= 75:
+            st.success(f"🎉 Genel Başarı: **{avg_score:.0f}%** - Mükemmel sonuç!")
+        elif avg_score >= 60:
+            st.info(f"⚡ Genel Başarı: **{avg_score:.0f}%** - İyi sonuç!")
+        else:
+            st.warning(f"⚠️ Genel Başarı: **{avg_score:.0f}%** - Gelişim alanları var.")
+        
+        st.markdown("---")
+        
+        st.markdown("### 📁 Detaylı Sonuçlar")
+        
+        for file_type, file_info in files_info.items():
+            with st.expander(f"{file_info['icon']} {file_info['title']} - {file_info['description']}", expanded=False):
+                content = self.load_file_content(file_info["path"])
+                score, status = self.get_quality_score(content, file_type)
+                
+                col1, col2, col3 = st.columns([2, 1, 1])
+                with col1:
+                    st.write(f"**📄 Dosya:** `{file_info['path'].name}`")
+                with col2:
+                    if content.get("status") == "success":
+                        size_kb = content["size"] / 1024
+                        st.write(f"**💾 Boyut:** {size_kb:.1f} KB")
+                with col3:
+                    if content.get("status") == "success":
+                        st.write(f"**🕒 Güncelleme:** {content['modified'].strftime('%H:%M')}")
+                
+                progress_color = "normal" if score >= 75 else "inverse" if score >= 50 else "off"
+                st.progress(score / 100, text=f"Kalite Skoru: {score}% - {status}")
+                
+                if content.get("status") == "success":
+                    if file_type == "cover_letter":
+                        st.markdown("**📝 Kapak Mektubu İçeriği:**")
+                        st.text_area(
+                            label="Kapak Mektubu İçeriği",
+                            value=content["content"],
+                            height=300,
+                            key=f"content_{file_type}",
+                            label_visibility="collapsed"
+                        )
+                    else:
+                        st.markdown("**🔍 JSON İçeriği:**")
+                        if isinstance(content["content"], dict):
+                            if file_type == "job_analysis":
+                                data = content["content"]
+                                info_col1, info_col2 = st.columns(2)
+                                with info_col1:
+                                    st.write(f"**🏢 Şirket:** {data.get('company_name', 'Belirtilmemiş')}")
+                                    st.write(f"**💼 Pozisyon:** {data.get('job_title', 'Belirtilmemiş')}")
+                                    st.write(f"**📍 Konum:** {data.get('location', 'Belirtilmemiş')}")
+                                with info_col2:
+                                    st.write(f"**🛠️ Teknolojiler:** {len(data.get('key_technologies', []))} adet")
+                                    st.write(f"**📋 Sorumluluklar:** {len(data.get('responsibilities', []))} adet")
+                                    st.write(f"**🎯 Nitelikler:** {len(data.get('qualifications', []))} adet")
+                            
+                            elif file_type == "resume_analysis":
+                                data = content["content"] 
+                                info_col1, info_col2 = st.columns(2)
+                                with info_col1:
+                                    st.write(f"**👤 İsim:** {data.get('personal_info', {}).get('name', 'Bulunamadı')}")
+                                    st.write(f"**🎓 Eğitim:** {len(data.get('education', []))} adet")
+                                    st.write(f"**💼 Deneyim:** {len(data.get('experience', []))} adet")
+                                with info_col2:
+                                    technical_skills = data.get('skills', {}).get('technical', [])
+                                    soft_skills = data.get('skills', {}).get('soft', [])
+                                    st.write(f"**🔧 Teknik Beceri:** {len(technical_skills)} adet")
+                                    st.write(f"**🧠 Soft Beceri:** {len(soft_skills)} adet")
+                                    st.write(f"**📊 Projeler:** {len(data.get('projects', []))} adet")
+                            
+                            elif file_type == "compatibility":
+                                data = content["content"]
+                                score_col1, score_col2 = st.columns(2)
+                                with score_col1:
+                                    st.write(f"**🎯 Genel Skor:** {data.get('overall_score', 'N/A')}")
+                                    st.write(f"**🔧 Teknik Skor:** {data.get('technical_skills_score', 'N/A')}")
+                                    st.write(f"**💼 Deneyim Skor:** {data.get('experience_score', 'N/A')}")
+                                with score_col2:
+                                    st.write(f"**🎓 Eğitim Skor:** {data.get('education_score', 'N/A')}")
+                                    st.write(f"**💪 Güçlü Yanlar:** {len(data.get('strengths', []))} adet")
+                                    st.write(f"**📈 Öneriler:** {len(data.get('recommendations', []))} adet")
+                        
+                        json_key = f"show_json_{file_type}_{self.workflow_id}"
+                        if json_key not in st.session_state:
+                            st.session_state[json_key] = False
+                        
+                        if st.button(f"📋 Tam JSON'ı {'Gizle' if st.session_state[json_key] else 'Görüntüle'}", key=f"toggle_json_{file_type}"):
+                            st.session_state[json_key] = not st.session_state[json_key]
+                        
+                        if st.session_state[json_key]:
+                            st.markdown("**📋 Tam JSON İçeriği:**")
+                            st.json(content["content"])
+                            
+                elif content.get("status") == "not_found":
+                    st.error("❌ Dosya bulunamadı!")
+                else:
+                    st.error(f"❌ Dosya okuma hatası: {content.get('content', 'Bilinmeyen hata')}")
+                
+                st.info(f"📂 **Tam Yol:** `{file_info['path']}`")
 
 st.set_page_config(
     page_title="AgnoAgent - AI Destekli Kariyer Asistanı",
@@ -175,12 +424,120 @@ st.markdown("""
         }
     }
     
+    /* Feature Cards - Modern Design */
+    .feature-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        padding: 2rem 1.5rem;
+        border-radius: var(--border-radius-xl);
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        border: 1px solid var(--gray-200);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        text-align: center;
+        height: 180px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .feature-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary-500), var(--primary-600));
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+        border-color: var(--primary-300);
+    }
+    
+    .feature-card:hover::before {
+        opacity: 1;
+    }
+    
+    .feature-icon {
+        width: 3.5rem;
+        height: 3.5rem;
+        background: linear-gradient(135deg, var(--primary-100), var(--primary-200));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1rem;
+        font-size: 1.5rem;
+        transition: all 0.4s ease;
+        box-shadow: 0 4px 14px 0 rgb(59 130 246 / 0.15);
+    }
+    
+    .feature-card:hover .feature-icon {
+        background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+        color: white;
+        transform: scale(1.1) rotate(5deg);
+        box-shadow: 0 8px 25px 0 rgb(59 130 246 / 0.3);
+    }
+    
+    .feature-card h3 {
+        color: var(--gray-900);
+        margin-bottom: 0.5rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        transition: color 0.3s ease;
+    }
+    
+    .feature-card:hover h3 {
+        color: var(--primary-700);
+    }
+    
+    .feature-card p {
+        color: var(--gray-600);
+        font-size: 0.875rem;
+        margin: 0;
+        line-height: 1.4;
+        transition: color 0.3s ease;
+    }
+    
+    .feature-card:hover p {
+        color: var(--gray-700);
+    }
+    
     /* Feature Grid Layout */
     .feature-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         gap: 2rem;
         margin: 2rem 0;
+    }
+    
+    /* Responsive for feature cards */
+    @media (max-width: 768px) {
+        .feature-card {
+            height: 160px;
+            padding: 1.5rem 1rem;
+        }
+        
+        .feature-icon {
+            width: 3rem;
+            height: 3rem;
+            font-size: 1.3rem;
+        }
+        
+        .feature-card h3 {
+            font-size: 1rem;
+        }
+        
+        .feature-card p {
+            font-size: 0.8rem;
+        }
     }
     
     /* Sidebar Styling */
@@ -218,6 +575,84 @@ st.markdown("""
         background: var(--primary-500);
         color: white;
         transform: scale(1.1);
+    }
+    
+    /* Multi-Agent Results Styling */
+    .stExpander > details > summary {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        font-weight: 600;
+        color: #374151;
+    }
+    
+    .stExpander > details > summary:hover {
+        background-color: #f1f5f9;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+    
+    .stExpander > details[open] > summary {
+        background-color: var(--primary-50);
+        border-color: var(--primary-200);
+        color: var(--primary-700);
+    }
+    
+    .stMetric {
+        background: white;
+        padding: 1rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        border: 1px solid #e5e7eb;
+        transition: all 0.2s ease;
+    }
+    
+    .stMetric:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+    
+    .stProgress .stProgress-bar {
+        background: linear-gradient(90deg, var(--primary-500), var(--success-500));
+        border-radius: 1rem;
+    }
+    
+    /* Results display improvements */
+    .results-summary {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border: 1px solid #0284c7;
+        border-radius: 1rem;
+        padding: 2rem;
+        margin: 1rem 0;
+    }
+    
+    .quality-indicator {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .quality-high {
+        background-color: var(--success-50);
+        color: var(--success-600);
+        border: 1px solid var(--success-200);
+    }
+    
+    .quality-medium {
+        background-color: var(--warning-50);
+        color: var(--warning-600);
+        border: 1px solid var(--warning-200);
+    }
+    
+    .quality-low {
+        background-color: var(--error-50);
+        color: var(--error-600);
+        border: 1px solid var(--error-200);
+    }
         transition: all 0.3s ease;
     }
     
@@ -471,45 +906,63 @@ if selected_page_key == "home":
     st.markdown("## 🌟 **Özellikler & Yetenekler**")
     st.markdown("---")
     
-    col1, col2, col3, col4, col5 = st.columns(5, gap="medium")
+    col1, col2, col3 = st.columns(3, gap="large")
     
     with col1:
         st.markdown("""
-        <div class="pro-card">
-            <div class="card-icon">🔍</div>
+        <div class="feature-card">
+            <div class="feature-icon">🔍</div>
             <h3>LinkedIn İş Arama</h3>
+            <p>Akıllı arama ve filtreleme</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
         st.markdown("""
-        <div class="pro-card">
-            <div class="card-icon">📄</div>
+        <div class="feature-card">
+            <div class="feature-icon">📄</div>
             <h3>CV Analizi</h3>
+            <p>Kapsamlı beceri çıkarımı</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
         st.markdown("""
-        <div class="pro-card">
-            <div class="card-icon">📊</div>
+        <div class="feature-card">
+            <div class="feature-icon">📊</div>
             <h3>İş Analizi</h3>
+            <p>Gereksinim analizi</p>
         </div>
         """, unsafe_allow_html=True)
     
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col4, col5, col6 = st.columns(3, gap="large")
+    
     with col4:
         st.markdown("""
-        <div class="pro-card">
-            <div class="card-icon">🎯</div>
+        <div class="feature-card">
+            <div class="feature-icon">🎯</div>
             <h3>Uygunluk Testi</h3>
+            <p>6 kategoride değerlendirme</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col5:
         st.markdown("""
-        <div class="pro-card">
-            <div class="card-icon">✉️</div>
+        <div class="feature-card">
+            <div class="feature-icon">✉️</div>
             <h3>Kapak Mektubu</h3>
+            <p>Kişiselleştirilmiş mektup</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col6:
+        st.markdown("""
+        <div class="feature-card">
+            <div class="feature-icon">🤖</div>
+            <h3>Multi-Agent</h3>
+            <p>Otomatik başvuru sistemi</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -535,6 +988,113 @@ elif selected_page_key == "cover_letter_generation":
 elif selected_page_key == "multi_agent":
     st.markdown("# 🤖 Multi-Agent Sistemi")
     st.markdown("---")
+
+    if st.session_state.get('workflow_completed', False) and st.session_state.get('last_workflow_id'):
+        st.markdown("## 🎉 Son İş Akışı Sonuçları")
+        
+        if st.button("🔄 Yeni İş Başvurusu Yap", type="secondary"):
+            st.session_state.workflow_completed = False
+            st.session_state.last_workflow_id = None
+            st.rerun()
+        
+        results_display = MultiAgentResultsDisplay(st.session_state.last_workflow_id)
+        results_display.display_results()
+        
+        st.markdown("---")
+
+    with st.container():
+        st.header("🚀 Tekil İş İlanı için Akıllı Başvuru Asistanı")
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                    padding: 1.5rem; border-radius: 1rem; color: white; margin-bottom: 2rem;">
+            <h4 style="color: white; margin-bottom: 1rem;">✨ Otomatik İş Başvuru Sistemi</h4>
+            <p style="margin: 0; opacity: 0.95;">
+                Tek bir iş ilanı URL'si ve CV'nizi yükleyin. Sistem otomatik olarak <strong>iş analizi</strong>, 
+                <strong>CV analizi</strong>, <strong>uygunluk testi</strong> ve <strong>kişiselleştirilmiş kapak mektubu</strong> oluşturacak.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        col1, col2 = st.columns([3, 2])
+        
+        with col1:
+            job_url = st.text_input(
+                "🔗 İş İlanı URL'si", 
+                placeholder="Örn: https://www.linkedin.com/jobs/view/...",
+                help="LinkedIn, Indeed, Kariyer.net veya diğer iş sitelerinden URL yapıştırın"
+            )
+        
+        with col2:
+            uploaded_resume = st.file_uploader(
+                "📄 CV'nizi Yükleyin", 
+                type=["pdf", "docx", "doc", "txt"],
+                help="PDF, DOCX veya TXT formatında CV yükleyebilirsiniz"
+            )
+
+        if job_url and uploaded_resume:
+            st.success("✅ Tüm bilgiler hazır! İş akışını başlatabilirsiniz.")
+        elif job_url:
+            st.info("📄 CV dosyasını yüklemeyi unutmayın.")
+        elif uploaded_resume:
+            st.info("🔗 İş ilanı URL'sini girmeyi unutmayın.")
+        else:
+            st.warning("⚠️ Başlamak için iş ilanı URL'si ve CV dosyası gereklidir.")
+
+        start_button = st.button(
+            "🚀 İş Akışını Başlat", 
+            type="primary", 
+            use_container_width=True,
+            disabled=(not job_url or not uploaded_resume)
+        )
+
+        if start_button and job_url and uploaded_resume:
+            if 'workflow_completed' in st.session_state:
+                del st.session_state.workflow_completed
+            if 'last_workflow_id' in st.session_state:
+                del st.session_state.last_workflow_id
+            
+            resume_save_path = Path("Jobs/Resumes") / uploaded_resume.name
+            resume_save_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(resume_save_path, "wb") as f:
+                f.write(uploaded_resume.getbuffer())
+
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            coordinator = CareerAgentTeamCoordinator()
+            
+            try:
+                status_text.info("🔍 İş akışı başlatılıyor...")
+                progress_bar.progress(10)
+                
+                result = asyncio.run(coordinator.run_full_workflow(job_url, str(resume_save_path)))
+                
+                progress_bar.progress(100)
+                status_text.success("✅ İş akışı başarıyla tamamlandı!")
+                
+                st.session_state.last_workflow_id = coordinator.workflow_id
+                st.session_state.workflow_completed = True
+                
+                results_display = MultiAgentResultsDisplay(coordinator.workflow_id)
+                results_display.display_results()
+
+            except Exception as e:
+                progress_bar.progress(0)
+                status_text.error("❌ İş akışı sırasında hata oluştu!")
+                
+                st.error(f"**Hata Detayı:** {str(e)}")
+                
+                with st.expander("🔧 Teknik Detaylar (Debug)"):
+                    import traceback
+                    st.code(traceback.format_exc())
+                
+                st.markdown("### 💡 Öneriler:")
+                st.markdown("""
+                - İş ilanı URL'sinin geçerli olduğundan emin olun
+                - CV dosyasının okunabilir formatta olduğunu kontrol edin
+                - OpenAI API key'inizin geçerli olduğundan emin olun
+                - Internet bağlantınızı kontrol edin
+                """)
 
 
 def main():

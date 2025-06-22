@@ -125,15 +125,11 @@ class JobCompatibilityToolkit(Toolkit):
         
         return json.dumps({"error": f"Beklenmeyen {data_type} veri tipi"})
     
-    def save_compatibility_report(self, compatibility_report: str, job_title: str, candidate_name: str) -> str:
+    def save_compatibility_report(self, compatibility_report: str, workflow_id: str, job_title: str = None, candidate_name: str = None) -> str:
         try:
             from datetime import datetime
             
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            safe_job_title = self._sanitize_filename(job_title)
-            safe_candidate_name = self._sanitize_filename(candidate_name)
-            
-            filename = f"compatibility_{safe_candidate_name}_{safe_job_title}_{timestamp}.json"
+            filename = f"compatibility_{workflow_id}.json"
             file_path = self.compatibility_results_dir / filename
             
             report_data = self._prepare_report_data(compatibility_report, job_title, candidate_name)
