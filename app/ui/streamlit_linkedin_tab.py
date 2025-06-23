@@ -323,7 +323,6 @@ class StreamlitLinkedInTab:
         </div>
         """, unsafe_allow_html=True)
         
-        st.markdown('<div class="search-form-pro">', unsafe_allow_html=True)
         st.markdown("### Arama Parametreleri")
         col1_1, col1_2 = st.columns(2)
         
@@ -411,7 +410,7 @@ class StreamlitLinkedInTab:
         with col2_2:
             job_type = st.selectbox(
                 label="💼 İş Tipi",
-                options=["", "full time", "part time", "contract", "temporary", "internship"],
+                options=["full time", "part time","internship"],
                 index=0,
                 key="linkedin_job_type",
                 help="İş türü (boş bırakılırsa tümü)"
@@ -423,7 +422,7 @@ class StreamlitLinkedInTab:
                 min_value=5,
                 max_value=50,
                 step=1,
-                value=10,
+                value=5,
                 key="linkedin_limit_input",
                 help="Çekilecek maksimum iş ilanı sayısı"
             )

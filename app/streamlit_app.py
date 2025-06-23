@@ -204,9 +204,19 @@ class MultiAgentResultsDisplay:
                         )
                     else:
                         st.markdown("**🔍 JSON İçeriği:**")
-                        if isinstance(content["content"], dict):
+                        
+                        content_data = content["content"]
+                        
+                        if file_info["path"].suffix == '.json' and not isinstance(content_data, dict):
+                            st.error(f"❌ Beklenen JSON dosyası ama string alındı!")
+                            st.text(f"Dosya yolu: {file_info['path']}")
+                            st.text(f"Veri tipi: {type(content_data)}")
+                            st.text(f"İlk 200 karakter: {str(content_data)[:200]}...")
+                            return
+                        
+                        if isinstance(content_data, dict):
                             if file_type == "job_analysis":
-                                data = content["content"]
+                                data = content_data
                                 info_col1, info_col2 = st.columns(2)
                                 with info_col1:
                                     st.write(f"**🏢 Şirket:** {data.get('company_name', 'Belirtilmemiş')}")
@@ -218,7 +228,7 @@ class MultiAgentResultsDisplay:
                                     st.write(f"**🎯 Nitelikler:** {len(data.get('qualifications', []))} adet")
                             
                             elif file_type == "resume_analysis":
-                                data = content["content"] 
+                                data = content_data
                                 info_col1, info_col2 = st.columns(2)
                                 with info_col1:
                                     st.write(f"**👤 İsim:** {data.get('personal_info', {}).get('name', 'Bulunamadı')}")
@@ -232,7 +242,7 @@ class MultiAgentResultsDisplay:
                                     st.write(f"**📊 Projeler:** {len(data.get('projects', []))} adet")
                             
                             elif file_type == "compatibility":
-                                data = content["content"]
+                                data = content_data
                                 score_col1, score_col2 = st.columns(2)
                                 with score_col1:
                                     st.write(f"**🎯 Genel Skor:** {data.get('overall_score', 'N/A')}")
@@ -242,17 +252,32 @@ class MultiAgentResultsDisplay:
                                     st.write(f"**🎓 Eğitim Skor:** {data.get('education_score', 'N/A')}")
                                     st.write(f"**💪 Güçlü Yanlar:** {len(data.get('strengths', []))} adet")
                                     st.write(f"**📈 Öneriler:** {len(data.get('recommendations', []))} adet")
-                        
-                        json_key = f"show_json_{file_type}_{self.workflow_id}"
-                        if json_key not in st.session_state:
-                            st.session_state[json_key] = False
-                        
-                        if st.button(f"📋 Tam JSON'ı {'Gizle' if st.session_state[json_key] else 'Görüntüle'}", key=f"toggle_json_{file_type}"):
-                            st.session_state[json_key] = not st.session_state[json_key]
-                        
-                        if st.session_state[json_key]:
-                            st.markdown("**📋 Tam JSON İçeriği:**")
-                            st.json(content["content"])
+                            
+                            json_key = f"show_json_{file_type}_{self.workflow_id}"
+                            if json_key not in st.session_state:
+                                st.session_state[json_key] = False
+                            
+                            @st.fragment
+                            def json_toggle_section(json_data, session_key, file_type_param):
+                                current_state = st.session_state.get(session_key, False)
+                                
+                                if st.button(f"📋 Tam JSON'ı {'Gizle' if current_state else 'Görüntüle'}", key=f"toggle_json_{file_type_param}"):
+                                    st.session_state[session_key] = not current_state
+                                    st.rerun(scope="fragment")
+                                
+                                if st.session_state.get(session_key, False):
+                                    st.markdown("**📋 Tam JSON İçeriği:**")
+                                    try:
+                                        with st.expander("📋 JSON Detayları", expanded=True):
+                                            st.json(json_data)
+                                    except Exception as e:
+                                        st.error(f"❌ JSON görüntüleme hatası: {str(e)}")
+                                        st.text(f"Ham veri: {str(json_data)[:500]}...")
+                            
+                            json_toggle_section(content_data, json_key, file_type)
+                        else:
+                            st.error(f"❌ Beklenen dict veri tipi, alınan: {type(content_data)}")
+                            st.text(f"İçerik: {str(content_data)[:200]}...")
                             
                 elif content.get("status") == "not_found":
                     st.error("❌ Dosya bulunamadı!")
@@ -1003,7 +1028,6 @@ elif selected_page_key == "multi_agent":
         st.markdown("---")
 
     with st.container():
-        st.header("🚀 Tekil İş İlanı için Akıllı Başvuru Asistanı")
         st.markdown("""
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                     padding: 1.5rem; border-radius: 1rem; color: white; margin-bottom: 2rem;">
