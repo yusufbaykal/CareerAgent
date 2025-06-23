@@ -1,6 +1,6 @@
 # 🚀 CareerAgent: AI‑Powered Career Assistant
 
-**CareerAgent** is an advanced, agent-based system built to accelerate your career progression by automating job search and application tasks. It combines distributed agent architecture with LLM-powered insights to transform unstructured career data into actionable intelligence.
+CareerAgent is an advanced, agent-based system built to accelerate your career progression by automating job search and application tasks. It combines distributed agent architecture with LLM-powered insights to transform unstructured career data into actionable intelligence.
 ---
 
 ### LinkedIn Job Search Agent
