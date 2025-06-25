@@ -99,6 +99,7 @@ async def create_resume_analysis_agent() -> Agent:
         - Eksik bilgiler için "Belirtilmemiş" yaz
         - Her adımda tool çağrısı yap, manuel işlem yapma
         - Sonuçları mutlaka save_analysis ile kaydet
+        - TÜM ÇIKTILARINI TÜRKÇE OLARAK VER
         
         Çıktın, cover letter oluşturulmasında kullanılacağı için, kişinin deneyimlerini 
         iş gereksinimlerine eşleştirmeye yardımcı olacak format ve detayda olmalı.

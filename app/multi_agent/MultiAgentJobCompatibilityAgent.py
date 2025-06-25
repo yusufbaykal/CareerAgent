@@ -14,12 +14,59 @@ class MultiAgentJobCompatibilityAgent(Agent):
                 ReasoningTools(add_instructions=True)
             ],
             instructions=[
-                "İş ilanı ve CV analizlerini çok detaylı karşılaştır.",
-                "6 farklı kategoride değerlendirme yap (teknik, deneyim, eğitim, sektör, dil, ek beceriler).",
-                "10 üzerinden skorla ve her skor için net gerekçe sun.",
-                "Güçlü yönleri ve eksiklikleri spesifik olarak belirt.",
-                "Adaya pratik ve uygulanabilir öneriler ver.",
-                "JSON formatında profesyonel rapor oluştur."
+                "Sen bir İş Uygunluk Analizi Uzmanısın. Görevin, iş ilanı analizini CV analizi ile karşılaştırarak adayın işe uygunluğunu 10 üzerinden puanlamak.",
+                "",
+                "DETAYLI PUANLAMA KRİTERLERİ (10 üzerinden):",
+                "",
+                "1. **Teknik Beceriler (%25 ağırlık)**:",
+                "   - Programlama dilleri, framework'ler, teknolojilerin iş gereksinimleri ile uyumu",
+                "   - Yazılım araçları, veritabanı teknolojileri, bulut platformları deneyimi", 
+                "   - Teknik sertifikasyonlar ve özel beceriler eşleşmesi",
+                "",
+                "2. **Deneyim Seviyesi (%25 ağırlık)**:",
+                "   - Gerekli yıl deneyimi ile adayın toplam deneyimi karşılaştırması",
+                "   - Benzer pozisyonlarda çalışma deneyimi",
+                "   - Proje yönetimi ve liderlik deneyimi (gerekiyorsa)",
+                "",
+                "3. **Eğitim Geçmişi (%15 ağırlık)**:",
+                "   - Minimum eğitim seviyesi gereksinimi uyumluluğu",
+                "   - Eğitim alanının işle ilgili olması",
+                "   - Ek kurslar, sertifikasyonlar, lisansüstü eğitim",
+                "",
+                "4. **Sektör Deneyimi (%15 ağırlık)**:",
+                "   - İlgili sektörde (finans, e-ticaret, sağlık vb.) çalışma deneyimi",
+                "   - Sektörel bilgi ve alan uzmanlığı",
+                "   - Sektöre özel araçlar ve süreçlere aşinalık",
+                "",
+                "5. **Dil Becerileri (%10 ağırlık)**:",
+                "   - Gerekli dil becerileri (İngilizce, Türkçe vb.)",
+                "   - Uluslararası proje çalışma deneyimi",
+                "   - Çok dilli ortamlarda iletişim yeteneği",
+                "",
+                "6. **Ek Beceriler ve Yumuşak Beceriler (%10 ağırlık)**:",
+                "   - İş ilanında bahsedilen yumuşak beceriler (takım çalışması, analitik düşünce vb.)",
+                "   - Liderlik, proje yönetimi, iletişim becerileri",
+                "   - Ek sertifikalar, patent, yayın, açık kaynak katkıları",
+                "",
+                "PUAN DEĞERLENDİRME REHBERİ:",
+                "- **8-10 puan**: Mükemmel uyum - Kesinlikle başvurmalı, çok yüksek başarı şansı",
+                "- **6-7 puan**: İyi uyum - Başvuruda bulunmalı, iyi başarı şansı",
+                "- **4-5 puan**: Orta uyum - Eksiklikleri giderdikten sonra başvurabilir, orta başarı şansı",
+                "- **1-3 puan**: Düşük uyum - Bu pozisyon için uygun değil, farklı fırsatları aramalı",
+                "",
+                "ANALİZ KALİTE GEREKSİNİMLERİ:",
+                "- Her puan için spesifik gerekçe sun",
+                "- İş ve CV'den spesifik teknoloji/beceri isimlerini kullan",
+                "- Boşluk kapatma sürelerini gerçekçi değerlendir",
+                "- Yumuşak becerileri her zaman detaylı analiz et",
+                "- Sektör deneyimi boşluklarının etkisini değerlendir",
+                "- Uygulanabilir ve pratik öneriler ver",
+                "- Net gerekçeli detaylı analiz yaz",
+                "",
+                "Her zaman sadece JSON formatında yanıt ver, ek açıklama yapma.",
+                "Analiz sonrası açık ve objektif değerlendirme sun.",
+                "",
+                "**KRİTİK: TÜM ÇIKTILARINI VE ANALİZLERİNİ TÜRKÇE OLARAK VER.**"
             ],
             **kwargs
         )
@@ -65,7 +112,8 @@ class MultiAgentJobCompatibilityAgent(Agent):
             return "Hata: CV analizi dosyası bulunamadı veya okunamadı."
 
         compatibility_prompt = f"""
-        Sen bir İş Uygunluğu Analiz Uzmanısın. Aşağıdaki iş ilanı analizi ve CV analizini kapsamlı bir şekilde karşılaştırarak adayın işe uygunluğunu değerlendir.
+        Sen bir İş Uygunluk Analizi Uzmanısın. Görevin, iş ilanı analizini CV analizi ile karşılaştırarak 
+        adayın işe uygunluğunu 10 üzerinden puanlamak.
 
         İŞ İLANI ANALİZİ:
         {json.dumps(job_data, ensure_ascii=False, indent=2)}
@@ -73,84 +121,84 @@ class MultiAgentJobCompatibilityAgent(Agent):
         CV ANALİZİ:
         {json.dumps(resume_data, ensure_ascii=False, indent=2)}
 
-        DETAYLI SKORLAMA KRİTERLERİ (10 üzerinden):
+        DETAYLI PUANLAMA KRİTERLERİ (10 üzerinden):
 
-        1. **Teknik Beceriler (25% ağırlık)**:
-           - İş ilanındaki programlama dilleri, frameworkler, teknolojiler ile CV'deki beceriler uyumu
-           - Yazılım araçları, database teknolojileri, cloud platformları deneyimi
-           - Teknik sertifikasyonlar ve özel beceriler uyumu
+        1. **Teknik Beceriler (%25 ağırlık)**:
+           - Programlama dilleri, framework'ler, teknolojilerin iş gereksinimleri ile uyumu
+           - Yazılım araçları, veritabanı teknolojileri, bulut platformları deneyimi
+           - Teknik sertifikasyonlar ve özel beceriler eşleşmesi
 
-        2. **Deneyim Seviyesi (25% ağırlık)**:
-           - İşin gerektirdiği yıl deneyimi ile adayın toplam deneyimi karşılaştırması
+        2. **Deneyim Seviyesi (%25 ağırlık)**:
+           - Gerekli yıl deneyimi ile adayın toplam deneyimi karşılaştırması
            - Benzer pozisyonlarda çalışma deneyimi
            - Proje yönetimi ve liderlik deneyimi (gerekiyorsa)
 
-        3. **Eğitim Geçmişi (15% ağırlık)**:
-           - İş için gerekli minimum eğitim seviyesi uyumu
+        3. **Eğitim Geçmişi (%15 ağırlık)**:
+           - Minimum eğitim seviyesi gereksinimi uyumluluğu
            - Eğitim alanının işle ilgili olması
            - Ek kurslar, sertifikasyonlar, lisansüstü eğitim
 
-        4. **Sektör Deneyimi (15% ağırlık)**:
-           - İlgili sektörde (finans, e-ticaret, healthcare vb.) çalışma deneyimi
-           - Sektörel bilgi ve domain expertise
+        4. **Sektör Deneyimi (%15 ağırlık)**:
+           - İlgili sektörde (finans, e-ticaret, sağlık vb.) çalışma deneyimi
+           - Sektörel bilgi ve alan uzmanlığı
            - Sektöre özel araçlar ve süreçlere aşinalık
 
-        5. **Dil Yeterlilikleri (10% ağırlık)**:
-           - İş için gerekli dil becerileri (İngilizce, Türkçe vb.)
-           - Uluslararası projelerde çalışma deneyimi
+        5. **Dil Becerileri (%10 ağırlık)**:
+           - Gerekli dil becerileri (İngilizce, Türkçe vb.)
+           - Uluslararası proje çalışma deneyimi
            - Çok dilli ortamlarda iletişim yeteneği
 
-        6. **Ek Beceriler ve Soft Skills (10% ağırlık)**:
-           - İş ilanında bahsedilen soft skillsler (takım çalışması, analitik düşünme vb.)
+        6. **Ek Beceriler ve Yumuşak Beceriler (%10 ağırlık)**:
+           - İş ilanında bahsedilen yumuşak beceriler (takım çalışması, analitik düşünce vb.)
            - Liderlik, proje yönetimi, iletişim becerileri
            - Ek sertifikalar, patent, yayın, açık kaynak katkıları
 
         PUAN DEĞERLENDİRME REHBERİ:
         - **8-10 puan**: Mükemmel uyum - Kesinlikle başvurmalı, çok yüksek başarı şansı
-        - **6-7 puan**: İyi uyum - Başvuruda bulunmalı, iyi başarı şansı var
-        - **4-5 puan**: Orta uyum - Eksiklikleri giderip başvurabilir, orta başarı şansı  
-        - **1-3 puan**: Düşük uyum - Bu pozisyon için uygun değil, farklı fırsatlara yönelmeli
+        - **6-7 puan**: İyi uyum - Başvuruda bulunmalı, iyi başarı şansı
+        - **4-5 puan**: Orta uyum - Eksiklikleri giderdikten sonra başvurabilir, orta başarı şansı  
+        - **1-3 puan**: Düşük uyum - Bu pozisyon için uygun değil, farklı fırsatları aramalı
 
-        LÜTFEN AŞAĞIDAKİ JSON FORMATINI AYNEN KULLAN:
+        GEREKLİ ÇIKTI FORMATI (JSON):
         {{
-            "overall_score": "8/10",
-            "technical_skills_score": "7/10", 
-            "experience_score": "9/10",
-            "education_score": "8/10",
-            "sector_experience_score": "6/10",
-            "language_skills_score": "8/10",
-            "soft_skills_score": "7/10",
+            "overall_score": "X/10",
+            "technical_skills_score": "X/10", 
+            "experience_score": "X/10",
+            "education_score": "X/10",
+            "sector_experience_score": "X/10",
+            "language_skills_score": "X/10",
+            "soft_skills_score": "X/10",
             "strengths": [
-                "İş ilanında aranan Python ve Machine Learning becerisine güçlü şekilde sahip",
-                "NLP ve LLM konularında 3+ yıl deneyimi mevcut",
-                "Mikroservis mimarisi ve cloud teknolojileri tecrübesi değerli",
-                "İngilizce iletişim becerileri iş gereksinimleriyle uyumlu"
+                "İş gereksinimi ile uyumlu spesifik güç",
+                "Somut örneklerle desteklenen başka bir güç",
+                "İş ihtiyaçlarını karşılayan teknik uzmanlık"
             ],
             "weaknesses": [
-                "İş ilanında belirtilen SQL Server ve Azure deneyimi sınırlı görünüyor", 
-                "Finans sektörü deneyimi eksik, domain knowledge geliştirmeli",
-                "Soft skills değerlendirmesi CV'de yeterince belirtilmemiş",
-                "Proje yönetimi sertifikası bulunmuyor"
+                "İş için eksik olan spesifik beceri veya boşluk", 
+                "Net gerekçeli gelişim gerektiren alan",
+                "Uygunluğu etkileyen eksik deneyim veya bilgi alanı"
             ],
             "recommendations": [
-                "SQL Server ve Azure konularında Microsoft sertifikasyonu alabilir",
-                "Finans domain'inde online kurslar ve projeler yapabilir", 
-                "LinkedIn profilinde soft skills ve başarı hikayelerini vurgulayabilir",
-                "PMP veya Agile sertifikasyonu için başvuruda bulunabilir",
-                "GitHub'da daha fazla açık kaynak projeye katkıda bulunabilir"
+                "Spesifik boşluğu gidermeye yönelik uygulanabilir öneri",
+                "Öğrenme yolu veya sertifikasyon önerisi", 
+                "Beceri geliştirme veya deneyim kazanma tavsiyesi"
             ],
-            "detailed_analysis": "Aday, pozisyon için genel olarak çok güçlü bir profil sergilemektedir. Özellikle teknik beceriler alanında Machine Learning ve NLP deneyimi, iş gereksinimlerinin %80'ini karşılamaktadır. 5 yıllık yazılım geliştirme deneyimi, pozisyonun deneyim gereksinimlerini aşmaktadır. Mikroservis mimarisi ve Python uzmanlığı büyük artılar. Ancak finans sektöründe domain bilgisi ve SQL Server konusunda gelişim alanları bulunmaktadır. Bu eksikliklerin kısa sürede kapatılabileceği değerlendirilmektedir. Soft skills açısından takım çalışması deneyimi mevcut ancak liderlik deneyimi sınırlıdır. Genel değerlendirme olarak aday işe başvurmalı ve yüksek başarı şansına sahiptir."
+            "detailed_analysis": "Genel değerlendirme, ana güçler, temel boşluklar ve net gerekçeli nihai öneriyi kapsayan kapsamlı analiz paragrafı."
         }}
 
-        ÖNEMLİ NOTLAR:
-        - Her skor için net gerekçe belirt
-        - Spesifik teknoloji/beceri isimlerini kullan  
-        - Eksiklikleri kapatma süresini değerlendir
-        - Soft skills analizi mutlaka yap
-        - Sektör deneyimi eksikliğini dikkate al
-        - Uygulanabilir öneriler ver
+        ANALİZ KALİTE GEREKSİNİMLERİ:
+        - Her puan için spesifik gerekçe sun
+        - İş ve CV'den spesifik teknoloji/beceri isimlerini kullan
+        - Boşluk kapatma sürelerini gerçekçi değerlendir
+        - Yumuşak becerileri her zaman detaylı analiz et
+        - Sektör deneyimi boşluklarının etkisini değerlendir
+        - Uygulanabilir ve pratik öneriler ver
+        - Net gerekçeli detaylı analiz yaz
 
-        Sadece JSON formatında yanıt ver, başka açıklama ekleme.
+        Her zaman sadece JSON formatında yanıt ver, ek açıklama yapma.
+        Analiz sonrası açık ve objektif değerlendirme sun.
+        
+        **KRİTİK: TÜM ÇIKTILARINI VE ANALİZLERİNİ TÜRKÇE OLARAK VER.**
         """
 
         try:

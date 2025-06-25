@@ -1,6 +1,19 @@
-import streamlit as st
-import os
 import sys
+import os
+import locale
+
+
+if os.name == 'nt':
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
+    try:
+        locale.setlocale(locale.LC_ALL, 'Turkish_Turkey.utf8')
+    except locale.Error:
+        try:
+            locale.setlocale(locale.LC_ALL, 'tr_TR.utf8')
+        except locale.Error:
+            pass
+
+import streamlit as st
 import asyncio
 import json
 from pathlib import Path
@@ -889,7 +902,7 @@ api_key_input = st.sidebar.text_input(
     "🔑 OpenAI API Key",
     value=current_api_key,
     type="password",
-    help="AI fonksiyonları için gereklidir",
+    help="CV analizi, iş uygunluk değerlendirmesi ve kapak mektubu oluşturma için gereklidir. LinkedIn iş araması için GEREKLI DEĞİLDİR.",
     placeholder="sk-..."
 )
 

@@ -107,6 +107,8 @@ async def create_job_analysis_agent() -> Agent:
         - ✅ Yukarıdaki JSON yapısına UYGUN olmalı!
         
         Analiz sonuçlarını temiz, düzenli ve yapılandırılmış bir formatta sunmaya özen göster.
+        
+        **ÖNEMLİ: TÜM ÇIKTILARINI VE ANALİZLERİNİ TÜRKÇE OLARAK VER.**
     """)
     
     return Agent(

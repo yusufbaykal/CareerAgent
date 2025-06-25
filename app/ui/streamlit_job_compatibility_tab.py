@@ -26,11 +26,35 @@ class StreamlitJobCompatibilityTab:
             path.mkdir(parents=True, exist_ok=True)
 
     def _run_async_in_thread(self, coro):
+        import os
+        import locale
+        
+        if os.name == 'nt':
+            os.environ['PYTHONIOENCODING'] = 'utf-8'
+            try:
+                locale.setlocale(locale.LC_ALL, 'Turkish_Turkey.utf8')
+            except locale.Error:
+                try:
+                    locale.setlocale(locale.LC_ALL, 'tr_TR.utf8')
+                except locale.Error:
+                    pass
+        
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(coro)
-        loop.close()
-        return result
+        try:
+            result = loop.run_until_complete(coro)
+            return result
+        except UnicodeEncodeError as e:
+            return f"Thread encoding hatası: Türkçe karakter sorunu"
+        except Exception as e:
+            error_msg = str(e)
+            try:
+                error_msg.encode('ascii')
+            except UnicodeEncodeError:
+                error_msg = "Thread çalıştırma hatası (encoding sorunu)"
+            return f"Thread hatası: {error_msg}"
+        finally:
+            loop.close()
 
     def get_job_analysis_files(self) -> list:
         try:
@@ -71,33 +95,74 @@ class StreamlitJobCompatibilityTab:
                 jobs = job_data["results"]
             elif isinstance(job_data, list):
                 jobs = job_data
+            elif isinstance(job_data, dict) and "result" in job_data:
+                jobs = job_data["result"]
+            elif isinstance(job_data, dict):
+                jobs = []
+                for job_title, job_details in job_data.items():
+                    jobs.append({
+                        "job_key": job_title,
+                        "data": job_details
+                    })
             else:
                 jobs = []
             
             job_list = []
             for i, job in enumerate(jobs):
-                if "analysis" in job:
-                    company = job.get("company", "Bilinmeyen Şirket")
-                    position = job.get("position", f"Pozisyon {i+1}")
-                    analysis = job.get("analysis", {})
-                    if analysis:
-                        company_info = analysis.get("company_information", "")
-                        if company_info and company_info != "Belirtilmemiş":
-                            company = company_info.split(",")[0].split(".")[0].strip() or company
-                        position_details = analysis.get("position_details", "")
-                        if position_details and position_details != "Belirtilmemiş":
-                            position = position_details
+                if "job_key" in job:
+                    job_title = job["job_key"]
+                    job_details = job["data"]
+                    
+                    if " - " in job_title:
+                        position, company = job_title.split(" - ", 1)
+                    else:
+                        position = job_title
+                        company = job_details.get("company_information", "Bilinmeyen Şirket")
+                        
+                    job_list.append({
+                        "index": i,
+                        "display_name": f"{company.strip()} - {position.strip()}",
+                        "company": company.strip(),
+                        "position": position.strip(),
+                        "data": job_details
+                    })
                 else:
-                    company = job.get("company", "Bilinmeyen Şirket")
-                    position = job.get("position", f"Pozisyon {i+1}")
-                
-                job_list.append({
-                    "index": i,
-                    "display_name": f"{company} - {position}",
-                    "company": company,
-                    "position": position,
-                    "data": job
-                })
+                    if "company_information" in job and job.get("company_information", "").strip() and job.get("company_information") != "Belirtilmemiş":
+                        company_info = job.get("company_information", "")
+                        company_parts = company_info.replace(' dan ', ',').replace(' nin ', ',').split(',')[0].split('.')[0].split(' için')[0].strip()
+                        company = company_parts
+                        
+                        position_details = job.get("position_details", "")
+                        if position_details and position_details != "Belirtilmemiş":
+                            position = position_details.split(',')[0].strip()
+                        else:
+                            position = f"Pozisyon {i+1}"
+                            
+                    elif "analysis" in job:
+                        company = job.get("company", "Bilinmeyen Şirket")
+                        position = job.get("position", f"Pozisyon {i+1}")
+                        analysis = job.get("analysis", {})
+                        if analysis:
+                            company_info = analysis.get("company_information", "")
+                            if company_info and company_info != "Belirtilmemiş":
+                                company = company_info.split(",")[0].split(".")[0].strip() or company
+                            position_details = analysis.get("position_details", "")
+                            if position_details and position_details != "Belirtilmemiş":
+                                position = position_details
+                    else:
+                        company = job.get("company", "Bilinmeyen Şirket")
+                        position = job.get("position", f"Pozisyon {i+1}")
+                    
+                    if not company or company.strip() == "" or company == "Belirtilmemiş":
+                        company = "Bilinmeyen Şirket"
+                    
+                    job_list.append({
+                        "index": i,
+                        "display_name": f"{company.strip()} - {position.strip()}",
+                        "company": company.strip(),
+                        "position": position.strip(),
+                        "data": job
+                    })
             
             return job_list
         except Exception as e:
@@ -139,25 +204,60 @@ class StreamlitJobCompatibilityTab:
 
             with st.spinner(f"🔄 İş uygunluğu analizi yapılıyor{analysis_text}..."):
                 if selected_job_index is not None:
+                    safe_job_file = job_analysis_file
+                    safe_resume_file = resume_analysis_file
+                    safe_company = selected_job['company']
+                    safe_position = selected_job['position']
+                    
                     message = (
-                        f"Lütfen {job_analysis_file} iş analizi dosyasındaki {selected_job_index + 1}. iş ilanını "
-                        f"({selected_job['company']} - {selected_job['position']}) "
-                        f"{resume_analysis_file} CV analizi dosyası ile karşılaştırarak uygunluk analizi yap. "
-                        f"Adayın bu spesifik işe uygunluğunu 10 üzerinden skorla ve detaylı rapor oluştur."
+                        f"İş uygunluk analizi yap. "
+                        f"1. load_job_analysis(\"{job_analysis_file}\") ile iş analizi dosyasını yükle "
+                        f"2. load_resume_analysis(\"{resume_analysis_file}\") ile CV analizi dosyasını yükle "
+                        f"3. analyze_single_job_compatibility() ile {selected_job_index + 1}. işi (index: {selected_job_index}) analiz et "
+                        f"4. save_compatibility_report() ile raporu kaydet. "
+                        f"Seçilen iş: {safe_company} - {safe_position}"
                     )
                 else:
+                    safe_job_file = job_analysis_file
+                    safe_resume_file = resume_analysis_file
+                    
                     message = (
-                        f"Lütfen {job_analysis_file} iş analizi dosyası ile {resume_analysis_file} CV analizi dosyasını "
-                        f"karşılaştırarak uygunluk analizi yap. Adayın işe uygunluğunu 10 üzerinden skorla ve "
-                        f"detaylı rapor oluştur."
+                        f"İş uygunluk analizi yap. "
+                        f"1. load_job_analysis(\"{job_analysis_file}\") ile iş analizi dosyasını yükle "
+                        f"2. load_resume_analysis(\"{resume_analysis_file}\") ile CV analizi dosyasını yükle "
+                        f"3. analyze_compatibility() ile tüm işleri analiz et "
+                        f"4. save_compatibility_report() ile raporu kaydet."
                     )
+                
                 async def run_compatibility_analysis():
                     agent = await create_job_compatibility_agent()
                     try:
-                        await agent.aprint_response(message, stream=False)
+                        import os
+                        import locale
+                        
+                        if os.name == 'nt':
+                            os.environ['PYTHONIOENCODING'] = 'utf-8'
+                        
+                        response = await agent.arun(message)
+                        response_content = response.content if hasattr(response, 'content') else str(response)
+                        
+                        if isinstance(response_content, str):
+                            try:
+                                response_content.encode('ascii')
+                            except UnicodeEncodeError:
+                                response_content = response_content.encode('utf-8', errors='replace').decode('utf-8')
+                        
                         return "Analiz tamamlandı! Sonuçlar dosyalara kaydedildi."
+                        
+                    except UnicodeEncodeError as e:
+                        return f"Encoding hatası: {str(e)} - Agent çıktısında Türkçe karakter sorunu"
                     except Exception as e:
-                        return f"Analiz sırasında hata oluştu: {str(e)}"
+                        error_msg = str(e)
+                        try:
+                            error_msg.encode('ascii')
+                        except UnicodeEncodeError:
+                            error_msg = "Agent çalıştırma hatası (encoding sorunu)"
+                        return f"Analiz sırasında hata oluştu: {error_msg}"
                 
                 result = self._run_async_in_thread(run_compatibility_analysis())
                 

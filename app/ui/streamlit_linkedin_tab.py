@@ -10,7 +10,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from ui.agent_manager import AgentManager
 from ui.utils import UIUtils
-from job_agent_extenction import run_agent as run_linkedin_agent
+from Tool.LinkedInJobsToolkit import LinkedInJobsToolkit
+from Tool.FileToolkit import FileToolkit
 
 class StreamlitLinkedInTab:
     def __init__(self, agent_manager: AgentManager):
@@ -283,8 +284,28 @@ class StreamlitLinkedInTab:
                 if date_posted:
                     search_query += f", Son {date_posted} gün"
                 
-                search_message = f"'{keyword}' pozisyonu için LinkedIn'de {limit} adet iş arama yap. Konum: {location}. Sonuçları Jobs/Job_Results/ klasörüne kaydet."
-                result = self._run_async_in_thread(run_linkedin_agent(search_message))
+                linkedin_toolkit = LinkedInJobsToolkit()
+                file_toolkit = FileToolkit()
+                
+                search_results_raw = linkedin_toolkit.search_jobs(
+                    command=f"{keyword} in {location}",
+                    limit=limit,
+                    date_since_posted=date_filter
+                )
+                
+                search_results = json.loads(search_results_raw)
+                
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"{keyword.lower().replace(' ', '_')}_{location.lower().replace(' ', '_')}_{timestamp}.json"
+                filepath = f"Jobs/Job_Results/{filename}"
+                
+                file_toolkit.save_json(search_results, filepath)
+                
+                result = {
+                    "success": True,
+                    "response": f"LinkedIn araması tamamlandı. {limit} ilan bulundu ve {filepath} dosyasına kaydedildi.",
+                    "file_saved": filepath
+                }
                 
                 if result and result.get("success"):
                     json_files = list(self.job_results_path.glob("*.json"))

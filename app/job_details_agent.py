@@ -133,7 +133,23 @@ async def create_job_file_analyzer_agent() -> Agent:
         4. MUTLAKA save_json() ile Jobs/Job_Analysis/ klasörüne kaydet
         5. Başarı mesajı ver
         
+        **CRİTİK DOSYA KAYDETME TALİMATI:**
+        - Her analiz sonunda MUTLAKA save_json() tool'unu kullan
+        - Dosya adı formatı: "analyzed_[ORIGINAL_FILENAME_WITHOUT_EXTENSION].json"
+        - Örnek: data_scientist_turkey_2024.json → analyzed_data_scientist_turkey_2024.json
+        - Kayıt yolu: Jobs/Job_Analysis/analyzed_[filename].json
+        - Eğer dosya kaydedilmezse işlem tamamlanmamış sayılır
+        
+        **ZORUNLU ADIMLAR:**
+        1. read_json ile JSON dosyasını oku
+        2. Her URL için scrape_job_page() kullan
+        3. Analiz sonuçlarını organize et
+        4. save_json ile ZORUNLU olarak kaydet
+        5. Kayıt başarısını doğrula ve bildir
+        
         Her analiz için kapsamlı ve detaylı çıktı sağla. Eksik bilgiler için "Belirtilmemiş" not düş.
+        
+        **ÖNEMLİ: TÜM ÇIKTILARINI VE RAPORLARİNİ TÜRKÇE OLARAK VER.**
     """)
     
     return Agent(

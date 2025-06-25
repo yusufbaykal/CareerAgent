@@ -69,8 +69,10 @@ class StreamlitCoverLetterTab:
                 return len(job_data)
             elif isinstance(job_data, dict) and "result" in job_data:
                 return len(job_data["result"])
+            elif isinstance(job_data, dict):
+                return len(job_data)
             else:
-                return len(list(job_data.values())[0]) if job_data else 0
+                return 0 
         except Exception:
             return 0
 
@@ -167,6 +169,9 @@ class StreamlitCoverLetterTab:
             
             available_jobs = self.get_available_jobs_count(selected_job_file)
             
+            if available_jobs is None:
+                available_jobs = 0
+            
             if available_jobs > 0:
                 st.info(f"📈 Seçilen dosyada toplam **{available_jobs}** iş ilanı bulunuyor")
                 
@@ -190,19 +195,59 @@ class StreamlitCoverLetterTab:
                             job_data = json.load(f)
                         
                         if isinstance(job_data, dict) and "results" in job_data:
-                            jobs = job_data["results"]
+                            jobs = []
+                            for job_item in job_data["results"]:
+                                company_info = job_item.get("company_information", "Bilinmeyen Şirket")
+                                if company_info and company_info != "Belirtilmemiş":
+                                    company = company_info.split(",")[0].split(".")[0].strip()
+                                else:
+                                    company = "Bilinmeyen Şirket"
+                                
+                                position_details = job_item.get("position_details", "Bilinmeyen Pozisyon")
+                                if position_details and position_details != "Belirtilmemiş":
+                                    position = position_details.split(",")[0].strip()
+                                else:
+                                    position = "Bilinmeyen Pozisyon"
+                                
+                                job_obj = {
+                                    "company": company,
+                                    "position": position,
+                                    "analysis": job_item
+                                }
+                                jobs.append(job_obj)
                         elif isinstance(job_data, list):
                             jobs = job_data
                         elif isinstance(job_data, dict) and "result" in job_data:
                             jobs = job_data["result"]
+                        elif isinstance(job_data, dict):
+                            jobs = []
+                            for job_title, job_details in job_data.items():
+                                if " - " in job_title:
+                                    position, company = job_title.split(" - ", 1)
+                                else:
+                                    position = job_title
+                                    company = job_details.get("company_information", "Bilinmeyen Şirket")
+                                    if company == "Belirtilmemiş":
+                                        company = "Bilinmeyen Şirket"
+                                
+                                job_obj = {
+                                    "company": company,
+                                    "position": position,
+                                    "analysis": job_details
+                                }
+                                jobs.append(job_obj)
                         else:
-                            jobs = list(job_data.values())[0] if job_data else []
+                            jobs = []
                         
                         selected_job_indices = []
                         for i, job in enumerate(jobs[:10]):
                             if "analysis" in job:
                                 company = job.get("company", f"Şirket_{i+1}")
                                 position = job.get("position", f"Pozisyon_{i+1}")
+                            elif isinstance(job, dict):
+                                company = job.get("company", f"Şirket_{i+1}")
+                                position = job.get("position", f"Pozisyon_{i+1}")
+                                
                                 analysis = job.get("analysis", {})
                                 if analysis:
                                     company_info = analysis.get("company_information", "")
@@ -213,8 +258,8 @@ class StreamlitCoverLetterTab:
                                     if position_details and position_details != "Belirtilmemiş":
                                         position = position_details
                             else:
-                                company = job.get("company", f"Şirket_{i+1}")
-                                position = job.get("position", f"Pozisyon_{i+1}")
+                                company = f"Şirket_{i+1}"
+                                position = f"Pozisyon_{i+1}"
                             
                             if st.checkbox(f"🏢 {company} - {position}", key=f"job_select_{i}"):
                                 selected_job_indices.append(i)
