@@ -1,10 +1,6 @@
 # 🚀 CareerAgent: AI‑Powered Career Assistant
 
-**CareerAgent** is an advanced, agent-based system built to accelerate your career progression by automating job search and application tasks. It combines distributed agent architecture with LLM-powered insights to transform unstructured career data into actionable intelligence.
-
----
-
-
+CareerAgent is an advanced, agent-based system built to accelerate your career progression by automating job search and application tasks. It combines distributed agent architecture with LLM-powered insights to transform unstructured career data into actionable intelligence.
 ---
 
 ### LinkedIn Job Search Agent
@@ -29,12 +25,20 @@ Identifies skill gaps and provides targeted upskilling recommendations.
 Context-aware automatic cover letter creation tailored to job specs.  
 Customizable templates that dynamically emphasize your top qualifications based on compatibility analysis.
 
-### Multi-Agent Orchestration (In Development)
-Asynchronous, parallel task execution with state management.  
-Intelligent task prioritization and inter-agent communication.  
-Automated error handling and recovery protocols.
+### Multi-Agent Orchestration
+Fully operational asynchronous, parallel task execution with state management.  
+Complete workflow automation from job URL and CV to final cover letter generation.  
+Intelligent task prioritization, inter-agent communication, and automated error handling.
 
+### Multi-Agent Workflow
 
+The application includes a comprehensive Multi-Agent System that can:
+
+1. **Analyze job URLs** - Extract and parse job requirements
+2. **Process CVs** - Analyze candidate qualifications and experience  
+3. **Calculate compatibility** - Generate detailed job-candidate fit scores
+4. **Create cover letters** - Generate personalized application letters
+5. **Export results** - Save all outputs in structured JSON and text formats
 ---
 
 ## 🛠️ Technology Stack
@@ -42,10 +46,11 @@ Automated error handling and recovery protocols.
 | Category          | Technologies                                       |
 | ----------------- | -------------------------------------------------- |
 | **Framework**     | Streamlit                                          |
-| **AI & Agents**   | AgnoAgent, OpenAI GPT                              |
-| **Web Scraping**  | BeautifulSoup4, Requests                           |
-| **Doc Processing**| PyPDF2, python-docx                                |
-| **Data & Core**   | Python 3.10+, JSON, Pathlib, Dotenv                |
+| **AI & Agents**   | AgnoAgent, OpenAI GPT-4                           |
+| **Multi-Agent**   | Asynchronous task orchestration, State management |
+| **Web Scraping**  | BeautifulSoup4, Requests, LinkedIn Jobs API       |
+| **Doc Processing**| PyPDF2, python-docx, Multi-format parsing         |
+| **Data & Core**   | Python 3.10+, JSON, Pathlib, UUID, Dotenv        |
 
 ---
 
@@ -90,6 +95,7 @@ streamlit run app/streamlit_app.py
 
 Navigate to the local URL provided by Streamlit in your browser to start using the agents.
 
+
 ### CLI Usage *(Coming Soon)*
 
 A command-line interface for advanced scripting and automation is under development.
@@ -107,8 +113,14 @@ The repository is organized to separate the application logic, agent toolkits, a
 ```
 CareerAgent/
 ├── app/                        
-│   ├── streamlit_app.py        
+│   ├── streamlit_app.py       
 │   ├── *_agent.py              
+│   ├── multi_agent/            
+│   │   ├── CareerAgentTeamCoordinator.py  
+│   │   ├── MultiAgentCoverLetterAgent.py  
+│   │   ├── MultiAgentJobCompatibilityAgent.py  
+│   │   ├── MultiAgentResumeAnalysisAgent.py   
+│   │   └── SingleJobAnalysisAgent.py          
 │   ├── Tool/                    
 │   │   ├── ContentCache.py    
 │   │   ├── CoverLetterToolkit.py 
@@ -117,11 +129,13 @@ CareerAgent/
 │   │   ├── JobAnalysisToolkit.py
 │   │   ├── JobCompatibilityToolkit.py 
 │   │   ├── LinkedInJobsToolkit.py 
-│   │   └── ResumeAnalysisToolkit.py 
+│   │   ├── ResumeAnalysisToolkit.py
+│   │   ├── SingleJobAnalysisToolkit.py
+│   │   └── WebScraperToolkit.py
 │   └── ui/                     
 │       ├── agent_manager.py     
 │       └── streamlit_*_tab.py   
-├── Jobs/                        
+├── Jobs/                       
 │   ├── Cover_Letters/          
 │   ├── Job_Analysis/           
 │   ├── Job_Compatibility/      
